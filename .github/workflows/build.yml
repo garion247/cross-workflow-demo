@@ -9,13 +9,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Produce build output
         run: |
           mkdir -p dist
           echo "Build $(date -u)" > dist/build.txt
           echo "${{ github.sha }}" > dist/sha.txt
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload build (short retention - regenerable)
+        uses: actions/upload-artifact@v4
         with:
-          name: app-build
+          name: app-build-${{ github.sha }}
           path: dist/
           retention-days: 7
+
+      - name: Upload optional logs (may not exist)
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ github.sha }}
+          path: logs/
+          retention-days: 1
+          if-no-files-found: ignore
