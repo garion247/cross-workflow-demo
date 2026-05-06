@@ -1,0 +1,30 @@
+name: Redeploy from Past Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'ID of an earlier Build run to redeploy from'
+        required: true
+        type: string
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Download artifact from past run
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+          path: incoming/
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inspect and "redeploy"
+        run: |
+          echo "Redeploying artifact from run ${{ inputs.run_id }}"
+          echo "SHA was: $(cat incoming/sha.txt)"
+          cat incoming/build.txt
