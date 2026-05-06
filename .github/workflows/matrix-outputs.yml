@@ -1,4 +1,4 @@
-name: Matrix Outputs Gotcha
+name: Matrix Aggregation
 
 on:
   push:
@@ -11,18 +11,49 @@ jobs:
       fail-fast: false
       matrix:
         node: [ 18, 20, 22 ]
-    outputs:
-      last-result: ${{ steps.report.outputs.value }}
     steps:
-      - id: report
+      - name: Run combination and write result file
         run: |
-          echo "value=node-${{ matrix.node }}-passed" >> "$GITHUB_OUTPUT"
-          echo "Wrote: node-${{ matrix.node }}-passed"
+          mkdir -p out
+          cat > out/node-${{ matrix.node }}.json << JSON
+          {
+            "node": "${{ matrix.node }}",
+            "status": "passed",
+            "duration_ms": $((RANDOM % 1000 + 200))
+          }
+          JSON
 
-  show:
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-node-${{ matrix.node }}
+          path: out/
+          retention-days: 1
+
+  aggregate:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo "needs.test.outputs.last-result = ${{ needs.test.outputs.last-result }}"
-          echo "Only one matrix combination's value survives - the others are gone."
+      - name: Download every result artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: incoming/
+          pattern: result-node-*
+          merge-multiple: true
+
+      - name: Aggregate
+        run: |
+          echo "Files received:"
+          ls -la incoming/
+          echo
+          echo "Combined results:"
+          jq -s '.' incoming/*.json
+          echo
+          PASS_COUNT=$(jq -s '[.[] | select(.status=="passed")] | length' incoming/*.json)
+          TOTAL=$(jq -s 'length' incoming/*.json)
+          echo "Quality gate: $PASS_COUNT / $TOTAL combinations passed"
+          if [ "$PASS_COUNT" = "$TOTAL" ]; then
+            echo "All combinations passed."
+          else
+            echo "Some combinations failed."
+            exit 1
+          fi
