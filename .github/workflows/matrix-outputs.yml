@@ -1,0 +1,28 @@
+name: Matrix Outputs Gotcha
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [ 18, 20, 22 ]
+    outputs:
+      last-result: ${{ steps.report.outputs.value }}
+    steps:
+      - id: report
+        run: |
+          echo "value=node-${{ matrix.node }}-passed" >> "$GITHUB_OUTPUT"
+          echo "Wrote: node-${{ matrix.node }}-passed"
+
+  show:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "needs.test.outputs.last-result = ${{ needs.test.outputs.last-result }}"
+          echo "Only one matrix combination's value survives - the others are gone."
